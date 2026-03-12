@@ -1,0 +1,13 @@
+{
+  "name": "@semlocal/cli-darwin-x64",
+  "version": "0.1.0",
+  "description": "semlocal binary for macOS x64",
+  "license": "MIT",
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "files": ["bin/"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicepkg/semlocal"
+  }
+}

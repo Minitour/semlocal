@@ -1,0 +1,183 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.npm-pkg }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            npm-pkg: cli-linux-x64
+            binary: semlocal
+            use-cross: false
+
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            npm-pkg: cli-linux-arm64
+            binary: semlocal
+            use-cross: true
+
+          - target: x86_64-apple-darwin
+            runner: macos-13
+            npm-pkg: cli-darwin-x64
+            binary: semlocal
+            use-cross: false
+
+          - target: aarch64-apple-darwin
+            runner: macos-14
+            npm-pkg: cli-darwin-arm64
+            binary: semlocal
+            use-cross: false
+
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            npm-pkg: cli-win32-x64
+            binary: semlocal.exe
+            use-cross: false
+
+          - target: aarch64-pc-windows-msvc
+            runner: windows-latest
+            npm-pkg: cli-win32-arm64
+            binary: semlocal.exe
+            use-cross: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross (Linux ARM64)
+        if: matrix.use-cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build (cross)
+        if: matrix.use-cross
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Build (cargo)
+        if: "!matrix.use-cross"
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.npm-pkg }}
+          path: target/${{ matrix.target }}/release/${{ matrix.binary }}
+
+  release:
+    name: GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          for dir in artifacts/*/; do
+            pkg=$(basename "$dir")
+            if ls "$dir"*.exe 1>/dev/null 2>&1; then
+              cp "$dir"*.exe "release-assets/semlocal-${pkg}.exe"
+            else
+              cp "$dir"semlocal "release-assets/semlocal-${pkg}"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*
+
+  npm-publish:
+    name: Publish npm packages
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Prepare and publish platform packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PACKAGES=(
+            "cli-linux-x64"
+            "cli-linux-arm64"
+            "cli-darwin-x64"
+            "cli-darwin-arm64"
+            "cli-win32-x64"
+            "cli-win32-arm64"
+          )
+
+          for pkg in "${PACKAGES[@]}"; do
+            echo "--- Publishing @semlocal/${pkg} ---"
+
+            # Copy binary into the npm package bin/ directory
+            cp "artifacts/${pkg}/"* "npm/${pkg}/bin/"
+
+            # Make binary executable (no-op on Windows binaries, but harmless)
+            chmod +x "npm/${pkg}/bin/"* 2>/dev/null || true
+
+            # Update version in package.json
+            cd "npm/${pkg}"
+            npm version "$VERSION" --no-git-tag-version --allow-same-version
+            npm publish --access public
+            cd ../..
+          done
+
+      - name: Publish root semlocal package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd npm/semlocal
+
+          # Update version in root and all optionalDependencies
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+          # Rewrite optionalDependencies versions to match
+          node -e "
+            const pkg = require('./package.json');
+            for (const dep of Object.keys(pkg.optionalDependencies || {})) {
+              pkg.optionalDependencies[dep] = '$VERSION';
+            }
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          npm publish --access public

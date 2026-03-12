@@ -1,0 +1,13 @@
+{
+  "name": "@semlocal/cli-linux-arm64",
+  "version": "0.1.0",
+  "description": "semlocal binary for Linux arm64",
+  "license": "MIT",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "files": ["bin/"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicepkg/semlocal"
+  }
+}

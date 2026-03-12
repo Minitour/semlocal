@@ -1,0 +1,31 @@
+{
+  "name": "semlocal",
+  "version": "0.1.0",
+  "description": "Local semantic search CLI — write, search, and delete text with vector embeddings, no backend required.",
+  "license": "MIT",
+  "bin": {
+    "semlocal": "bin.js"
+  },
+  "files": [
+    "bin.js"
+  ],
+  "optionalDependencies": {
+    "@semlocal/cli-linux-x64": "0.1.0",
+    "@semlocal/cli-linux-arm64": "0.1.0",
+    "@semlocal/cli-darwin-x64": "0.1.0",
+    "@semlocal/cli-darwin-arm64": "0.1.0",
+    "@semlocal/cli-win32-x64": "0.1.0",
+    "@semlocal/cli-win32-arm64": "0.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicepkg/semlocal"
+  },
+  "keywords": [
+    "semantic-search",
+    "embeddings",
+    "vector-search",
+    "cli",
+    "local"
+  ]
+}
