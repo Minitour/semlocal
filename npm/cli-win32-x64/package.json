@@ -8,6 +8,6 @@
   "files": ["bin/"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/nicepkg/semlocal"
+    "url": "https://github.com/Minitour/semlocal"
   }
 }

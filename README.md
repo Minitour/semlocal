@@ -1,6 +1,6 @@
 # semlocal
 
-[![Release](https://github.com/nicepkg/semlocal/actions/workflows/release.yml/badge.svg)](https://github.com/nicepkg/semlocal/actions/workflows/release.yml)
+[![Release](https://github.com/Minitour/semlocal/actions/workflows/release.yml/badge.svg)](https://github.com/Minitour/semlocal/actions/workflows/release.yml)
 [![npm](https://img.shields.io/npm/v/semlocal)](https://www.npmjs.com/package/semlocal)
 
 Local semantic search for the command line. Write, search, and delete text using vector embeddings — no backend, no API keys, everything stays on your machine.
