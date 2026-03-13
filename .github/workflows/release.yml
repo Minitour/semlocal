@@ -3,57 +3,49 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "v[0-9]*.[0-9]*.[0-9]*"
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  BINARY_NAME: semlocal
 
 permissions:
   contents: write
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
   build:
-    name: Build ${{ matrix.npm-pkg }}
+    name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-22.04
-            npm-pkg: cli-linux-x64
+            runner: ubuntu-latest
+            npm_platform: linux-x64
             binary: semlocal
-            use-cross: false
 
           - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-22.04
-            npm-pkg: cli-linux-arm64
+            runner: ubuntu-latest
+            npm_platform: linux-arm64
             binary: semlocal
-            use-cross: true
+            cross: true
 
           - target: x86_64-apple-darwin
-            runner: macos-13
-            npm-pkg: cli-darwin-x64
+            runner: macos-latest
+            npm_platform: darwin-x64
             binary: semlocal
-            use-cross: false
 
           - target: aarch64-apple-darwin
-            runner: macos-14
-            npm-pkg: cli-darwin-arm64
+            runner: macos-latest
+            npm_platform: darwin-arm64
             binary: semlocal
-            use-cross: false
 
           - target: x86_64-pc-windows-msvc
             runner: windows-latest
-            npm-pkg: cli-win32-x64
+            npm_platform: win32-x64
             binary: semlocal.exe
-            use-cross: false
-
-          - target: aarch64-pc-windows-msvc
-            runner: windows-latest
-            npm-pkg: cli-win32-arm64
-            binary: semlocal.exe
-            use-cross: false
 
     steps:
       - uses: actions/checkout@v4
@@ -63,121 +55,180 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Cache Cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Set Cargo.toml version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i.bak "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
+          rm -f Cargo.toml.bak
+
       - name: Install cross (Linux ARM64)
-        if: matrix.use-cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        if: matrix.cross
+        run: cargo install cross --locked
 
       - name: Build (cross)
-        if: matrix.use-cross
+        if: matrix.cross
         run: cross build --release --target ${{ matrix.target }}
 
-      - name: Build (cargo)
-        if: "!matrix.use-cross"
+      - name: Build (native)
+        if: "!matrix.cross"
         run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          mkdir -p staging
+          cp target/${{ matrix.target }}/release/${{ matrix.binary }} staging/
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.npm-pkg }}
-          path: target/${{ matrix.target }}/release/${{ matrix.binary }}
+          name: binary-${{ matrix.npm_platform }}
+          path: staging/${{ matrix.binary }}
+          if-no-files-found: error
 
-  release:
-    name: GitHub Release
+  publish:
+    name: Publish
     needs: build
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Derive version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all binary artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
 
-      - name: Prepare release assets
+      - name: Publish platform npm packages
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          mkdir -p release-assets
-          for dir in artifacts/*/; do
-            pkg=$(basename "$dir")
-            if ls "$dir"*.exe 1>/dev/null 2>&1; then
-              cp "$dir"*.exe "release-assets/semlocal-${pkg}.exe"
+          set -euo pipefail
+
+          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "::error::NPM_TOKEN secret is not set. Add it in Settings -> Secrets -> Actions."
+            exit 1
+          fi
+
+          echo "Publishing version: ${VERSION}"
+          echo "Artifact structure:"
+          ls -la artifacts/
+
+          for PLATFORM in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64; do
+            case "$PLATFORM" in
+              linux-x64)    BINARY="semlocal"     ; OS="linux"  ; CPU="x64"   ;;
+              linux-arm64)  BINARY="semlocal"     ; OS="linux"  ; CPU="arm64" ;;
+              darwin-x64)   BINARY="semlocal"     ; OS="darwin" ; CPU="x64"   ;;
+              darwin-arm64) BINARY="semlocal"     ; OS="darwin" ; CPU="arm64" ;;
+              win32-x64)    BINARY="semlocal.exe" ; OS="win32"  ; CPU="x64"   ;;
+            esac
+
+            PKG_NAME="@semlocal/cli-${PLATFORM}"
+            SRC="artifacts/binary-${PLATFORM}/${BINARY}"
+
+            echo "Packaging ${PKG_NAME} from ${SRC}"
+            mkdir -p "pkg-${PLATFORM}/bin"
+            cp "$SRC" "pkg-${PLATFORM}/bin/${BINARY}"
+            chmod +x "pkg-${PLATFORM}/bin/${BINARY}"
+
+            cat > "pkg-${PLATFORM}/package.json" <<PKGJSON
+          {
+            "name": "${PKG_NAME}",
+            "version": "${VERSION}",
+            "description": "semlocal binary for ${OS} ${CPU}",
+            "license": "MIT",
+            "os": ["${OS}"],
+            "cpu": ["${CPU}"],
+            "files": ["bin/"],
+            "repository": { "type": "git", "url": "https://github.com/Minitour/semlocal" }
+          }
+          PKGJSON
+
+            set +e
+            OUTPUT=$(cd "pkg-${PLATFORM}" && npm publish --access public 2>&1)
+            EXIT_CODE=$?
+            set -e
+
+            if [ $EXIT_CODE -ne 0 ]; then
+              if echo "$OUTPUT" | grep -qi "previously published version"; then
+                echo "Skipping ${PKG_NAME}@${VERSION} (already published)"
+              else
+                echo "$OUTPUT" >&2
+                exit $EXIT_CODE
+              fi
             else
-              cp "$dir"semlocal "release-assets/semlocal-${pkg}"
+              echo "$OUTPUT"
             fi
+            sleep 10
           done
+
+      - name: Update main package version and publish
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          set -euo pipefail
+          cd npm
+
+          cp ../README.md README.md
+
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = process.env.VERSION;
+            for (const k of Object.keys(pkg.optionalDependencies || {})) {
+              pkg.optionalDependencies[k] = process.env.VERSION;
+            }
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          set +e
+          OUTPUT=$(npm publish --access public 2>&1)
+          EXIT_CODE=$?
+          set -e
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            if echo "$OUTPUT" | grep -qi "previously published version"; then
+              echo "Skipping semlocal@${VERSION} (already published)"
+            else
+              echo "$OUTPUT" >&2
+              exit $EXIT_CODE
+            fi
+          else
+            echo "$OUTPUT"
+          fi
+
+      - name: Delete existing release (if re-running)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete "${{ github.ref_name }}" --yes --cleanup-tag=false 2>/dev/null || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: "v${{ steps.version.outputs.VERSION }}"
           generate_release_notes: true
-          files: release-assets/*
-
-  npm-publish:
-    name: Publish npm packages
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
-
-      - name: Set version from tag
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
-      - name: Prepare and publish platform packages
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          PACKAGES=(
-            "cli-linux-x64"
-            "cli-linux-arm64"
-            "cli-darwin-x64"
-            "cli-darwin-arm64"
-            "cli-win32-x64"
-            "cli-win32-arm64"
-          )
-
-          for pkg in "${PACKAGES[@]}"; do
-            echo "--- Publishing @semlocal/${pkg} ---"
-
-            # Copy binary into the npm package bin/ directory
-            cp "artifacts/${pkg}/"* "npm/${pkg}/bin/"
-
-            # Make binary executable (no-op on Windows binaries, but harmless)
-            chmod +x "npm/${pkg}/bin/"* 2>/dev/null || true
-
-            # Update version in package.json
-            cd "npm/${pkg}"
-            npm version "$VERSION" --no-git-tag-version --allow-same-version
-            npm publish --access public
-            cd ../..
-          done
-
-      - name: Publish root semlocal package
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          cd npm/semlocal
-
-          # Update version in root and all optionalDependencies
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
-
-          # Rewrite optionalDependencies versions to match
-          node -e "
-            const pkg = require('./package.json');
-            for (const dep of Object.keys(pkg.optionalDependencies || {})) {
-              pkg.optionalDependencies[dep] = '$VERSION';
-            }
-            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-
-          npm publish --access public

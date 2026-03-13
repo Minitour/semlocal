@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 
 const { execFileSync } = require("child_process");
-const path = require("path");
 
 const PLATFORMS = {
   "win32 x64": "@semlocal/cli-win32-x64/bin/semlocal.exe",
-  "win32 arm64": "@semlocal/cli-win32-arm64/bin/semlocal.exe",
   "darwin x64": "@semlocal/cli-darwin-x64/bin/semlocal",
   "darwin arm64": "@semlocal/cli-darwin-arm64/bin/semlocal",
   "linux x64": "@semlocal/cli-linux-x64/bin/semlocal",

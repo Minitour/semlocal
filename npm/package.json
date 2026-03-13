@@ -7,15 +7,15 @@
     "semlocal": "bin.js"
   },
   "files": [
-    "bin.js"
+    "bin.js",
+    "README.md"
   ],
   "optionalDependencies": {
     "@semlocal/cli-linux-x64": "0.1.0",
     "@semlocal/cli-linux-arm64": "0.1.0",
     "@semlocal/cli-darwin-x64": "0.1.0",
     "@semlocal/cli-darwin-arm64": "0.1.0",
-    "@semlocal/cli-win32-x64": "0.1.0",
-    "@semlocal/cli-win32-arm64": "0.1.0"
+    "@semlocal/cli-win32-x64": "0.1.0"
   },
   "repository": {
     "type": "git",

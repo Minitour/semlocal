@@ -1,23 +1,13 @@
-# Rust
 /target
-Cargo.lock
 
-# OS
 .DS_Store
 Thumbs.db
 
-# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# semlocal runtime data
 .semlocal/
 
-# npm platform binaries (populated by CI only)
-npm/cli-*/bin/*
-!npm/cli-*/bin/.gitkeep
-
-# Node
 node_modules/
