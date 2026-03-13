@@ -63,8 +63,8 @@ Pre-built binaries are provided for:
 | OS | x64 | arm64 |
 |---|---|---|
 | Linux | ✓ | ✓ |
-| macOS | ✓ | ✓ |
-| Windows | ✓ | ✓ |
+| macOS | | ✓ |
+| Windows | ✓ | |
 
 ## License
 

@@ -32,11 +32,6 @@ jobs:
             binary: semlocal
             cross: true
 
-          - target: x86_64-apple-darwin
-            runner: macos-latest
-            npm_platform: darwin-x64
-            binary: semlocal
-
           - target: aarch64-apple-darwin
             runner: macos-latest
             npm_platform: darwin-arm64
@@ -137,11 +132,10 @@ jobs:
           echo "Artifact structure:"
           ls -la artifacts/
 
-          for PLATFORM in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64; do
+          for PLATFORM in linux-x64 linux-arm64 darwin-arm64 win32-x64; do
             case "$PLATFORM" in
               linux-x64)    BINARY="semlocal"     ; OS="linux"  ; CPU="x64"   ;;
               linux-arm64)  BINARY="semlocal"     ; OS="linux"  ; CPU="arm64" ;;
-              darwin-x64)   BINARY="semlocal"     ; OS="darwin" ; CPU="x64"   ;;
               darwin-arm64) BINARY="semlocal"     ; OS="darwin" ; CPU="arm64" ;;
               win32-x64)    BINARY="semlocal.exe" ; OS="win32"  ; CPU="x64"   ;;
             esac
