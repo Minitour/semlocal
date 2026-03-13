@@ -61,7 +61,7 @@ semlocal uses [FastEmbed](https://github.com/Anush008/fastembed-rs) (ONNX Runtim
 
 ### First run
 
-The embedding model (~25 MB) is downloaded automatically on first use and cached in `~/.cache/fastembed/`. Subsequent runs start instantly.
+The embedding model (~25 MB) is downloaded automatically on first use and cached in `~/.semlocal/models/`. Subsequent runs start instantly.
 
 ## Platforms
 
