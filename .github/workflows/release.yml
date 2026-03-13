@@ -27,10 +27,9 @@ jobs:
             binary: semlocal
 
           - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-latest
+            runner: ubuntu-24.04-arm
             npm_platform: linux-arm64
             binary: semlocal
-            cross: true
 
           - target: aarch64-apple-darwin
             runner: macos-latest
@@ -67,16 +66,7 @@ jobs:
           sed -i.bak "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
           rm -f Cargo.toml.bak
 
-      - name: Install cross (Linux ARM64)
-        if: matrix.cross
-        run: cargo install cross --locked
-
-      - name: Build (cross)
-        if: matrix.cross
-        run: cross build --release --target ${{ matrix.target }}
-
-      - name: Build (native)
-        if: "!matrix.cross"
+      - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Stage binary
