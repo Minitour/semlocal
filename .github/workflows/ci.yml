@@ -9,9 +9,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
-permissions:
-  contents: write
-
 jobs:
   test:
     name: Test
@@ -39,48 +36,13 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Generate coverage
-        id: coverage
-        run: |
-          OUTPUT=$(cargo tarpaulin --lib --no-default-features 2>&1)
-          echo "$OUTPUT"
-          COVERAGE=$(echo "$OUTPUT" | grep -oP '^\d+\.\d+% coverage' | grep -oP '^\d+\.\d+')
-          echo "pct=$COVERAGE" >> "$GITHUB_OUTPUT"
+        run: cargo tarpaulin --lib --no-default-features --out xml --output-dir coverage
 
-      - name: Publish coverage badge
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          PCT="${{ steps.coverage.outputs.pct }}"
-          if [ -z "$PCT" ]; then
-            echo "Coverage percentage not found, skipping badge update"
-            exit 0
-          fi
-
-          # Pick color based on coverage
-          COLOR="red"
-          if awk "BEGIN {exit !($PCT >= 90)}"; then COLOR="brightgreen"
-          elif awk "BEGIN {exit !($PCT >= 75)}"; then COLOR="green"
-          elif awk "BEGIN {exit !($PCT >= 60)}"; then COLOR="yellow"
-          elif awk "BEGIN {exit !($PCT >= 40)}"; then COLOR="orange"
-          fi
-
-          # Write shields.io endpoint JSON
-          mkdir -p badge
-          cat > badge/coverage.json <<EOF
-          {
-            "schemaVersion": 1,
-            "label": "coverage",
-            "message": "${PCT}%",
-            "color": "${COLOR}"
-          }
-          EOF
-
-          # Push to gh-pages branch
-          cd badge
-          git init
-          git checkout -b gh-pages
-          git add coverage.json
-          git -c user.name="github-actions" -c user.email="actions@github.com" commit -m "Update coverage badge: ${PCT}%"
-          git push --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/cobertura.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Check default build
         run: cargo check
