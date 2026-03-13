@@ -56,6 +56,18 @@ semlocal delete <uuid>
 
 Fails if the entry does not exist.
 
+### Collections
+
+All commands accept `--collection <name>` to partition entries. Defaults to `default` if omitted.
+
+```bash
+semlocal write "some fact" --collection notes
+semlocal search "query" --collection notes
+semlocal delete <uuid> --collection notes
+```
+
+Collections are implicit — created on first write, removed when their last entry is deleted.
+
 ### Custom index directory
 
 All commands accept `--src <path>` to use a specific index directory instead of the default `.semlocal/` in the current working directory.

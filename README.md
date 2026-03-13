@@ -54,6 +54,18 @@ semlocal search "safe low-level language" --json --top 3
 semlocal delete a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
+### Collections
+
+Entries are organized into collections. If not specified, all operations use the `default` collection. Use `--collection` to partition your data:
+
+```bash
+semlocal write "Rust is fast" --collection languages
+semlocal search "performance" --collection languages
+semlocal delete a1b2c3d4-... --collection languages
+```
+
+Collections are created implicitly on first write and removed automatically when their last entry is deleted.
+
 ### Custom storage directory
 
 By default the index is stored in `.semlocal/` in the current working directory. Use `--src` to change this:

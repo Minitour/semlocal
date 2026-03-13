@@ -5,13 +5,20 @@ edition = "2021"
 description = "Local semantic search CLI — write, search, and delete text with vector embeddings, no backend required."
 license = "MIT"
 
+[features]
+default = ["embed"]
+embed = ["dep:fastembed", "dep:ort", "dep:dirs"]
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-fastembed = { version = "5", default-features = false, features = ["ort-download-binaries-rustls-tls", "hf-hub-rustls-tls"] }
-ort = { version = "2.0.0-rc.11", default-features = false, features = ["copy-dylibs"] }
+fastembed = { version = "5", default-features = false, features = ["ort-download-binaries-rustls-tls", "hf-hub-rustls-tls"], optional = true }
+ort = { version = "2.0.0-rc.11", default-features = false, features = ["copy-dylibs"], optional = true }
 rusqlite = { version = "0.32", features = ["bundled"] }
 uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
-dirs = "6"
+dirs = { version = "6", optional = true }
+
+[dev-dependencies]
+tempfile = "3"
