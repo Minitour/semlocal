@@ -20,6 +20,13 @@ semlocal write "Rust is a systems programming language focused on safety"
 # prints: a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
+You can also pipe text from another command or a file:
+
+```bash
+cat README.md | semlocal write
+echo "hello world" | semlocal write -
+```
+
 ### Search
 
 ```bash

@@ -16,13 +16,13 @@ pub struct Cli {
 pub enum Command {
     /// Store a piece of text and return its ID
     Write {
-        /// The text to store
-        text: String,
+        /// The text to store (reads from stdin if omitted or "-")
+        text: Option<String>,
     },
     /// Search for semantically similar text
     Search {
-        /// The query text
-        text: String,
+        /// The query text (reads from stdin if omitted or "-")
+        text: Option<String>,
 
         /// Number of results to return
         #[arg(long, default_value_t = 5)]

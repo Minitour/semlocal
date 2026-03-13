@@ -3,9 +3,10 @@ mod embed;
 mod search;
 mod store;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use serde::Serialize;
+use std::io::{self, Read};
 use std::process;
 
 use cli::{Cli, Command};
@@ -24,9 +25,24 @@ fn main() {
 
 fn run(cli: Cli) -> Result<()> {
     match cli.command {
-        Command::Write { text } => cmd_write(&cli.src, &text),
-        Command::Search { text, top, json } => cmd_search(&cli.src, &text, top, json),
+        Command::Write { text } => cmd_write(&cli.src, &resolve_text(text)?),
+        Command::Search { text, top, json } => cmd_search(&cli.src, &resolve_text(text)?, top, json),
         Command::Delete { id } => cmd_delete(&cli.src, &id),
+    }
+}
+
+fn resolve_text(arg: Option<String>) -> Result<String> {
+    match arg {
+        Some(ref s) if s != "-" => Ok(s.clone()),
+        _ => {
+            let mut buf = String::new();
+            io::stdin()
+                .read_to_string(&mut buf)
+                .context("failed to read from stdin")?;
+            let text = buf.trim().to_string();
+            anyhow::ensure!(!text.is_empty(), "no text provided (pass an argument or pipe via stdin)");
+            Ok(text)
+        }
     }
 }
 
