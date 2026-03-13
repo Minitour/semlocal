@@ -3,7 +3,15 @@
 [![Release](https://github.com/Minitour/semlocal/actions/workflows/release.yml/badge.svg)](https://github.com/Minitour/semlocal/actions/workflows/release.yml)
 [![npm](https://img.shields.io/npm/v/semlocal)](https://www.npmjs.com/package/semlocal)
 
-Local semantic search for the command line. Write, search, and delete text using vector embeddings — no backend, no API keys, everything stays on your machine.
+Local semantic search for the command line. Store, search, and delete text using vector embeddings — no backend, no API keys, everything stays on your machine.
+
+## Why
+
+Semantic search tools today assume you have infrastructure: a vector database to run, an embedding API to call, credentials to manage. That's fine for production systems, but overkill when all you need is a lightweight way to index and recall text — especially for AI agents that benefit from long-term memory.
+
+semlocal is a single binary you install with `npm` and run immediately. Embeddings are generated locally via ONNX Runtime, stored in a SQLite file, and searched with brute-force cosine similarity. No servers, no API keys, no Docker containers. Just a CLI that reads and writes to disk.
+
+Use it to give agents persistent, searchable memory without any compute or infrastructure overhead.
 
 ## Install
 
